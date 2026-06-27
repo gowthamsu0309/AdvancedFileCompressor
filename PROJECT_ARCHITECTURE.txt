@@ -1,0 +1,228 @@
+========================================================
+   PROJECT ARCHITECTURE — Advanced File Compressor
+========================================================
+
+--------------------------------------------------------
+ARCHITECTURAL STYLE
+--------------------------------------------------------
+This project uses a Single-Class Monolithic UI Architecture,
+which is intentional for a self-contained desktop tool.
+All panels, logic, inner classes, and utilities live in one
+file for maximum portability — copy one file, run anywhere.
+
+The pattern loosely follows:
+  View       → Swing panel builder methods (buildXxxPanel)
+  Controller → Action listeners and SwingWorker classes
+  Model      → Plain Java objects (HistoryEntry, ARResult)
+  Service    → Static inner classes (CompressionService,
+               HuffmanCodec, LZWCodec)
+
+--------------------------------------------------------
+HIGH-LEVEL ARCHITECTURE DIAGRAM
+--------------------------------------------------------
+
+  [ User ]
+      |
+      | interacts with
+      v
+  [ JFrame — AdvancedFileCompressor ]
+      |
+      ├── [ GradientPanel Header ]
+      │       ├── App Title Label
+      │       └── Dark Mode Toggle Button
+      │
+      ├── [ CardLayout — mainContainer ]
+      │       ├── Dashboard Panel
+      │       ├── Compress Panel
+      │       ├── Decompress Panel
+      │       ├── Compare Panel
+      │       ├── History Panel
+      │       ├── Settings Panel
+      │       └── Help Panel
+      │
+      └── [ Status Bar ]
+
+  Each Panel communicates with:
+      ↓
+  [ SwingWorker Threads ]
+      ├── CompressWorker  → CompressionService.compress()
+      ├── DecompressWorker→ CompressionService.decompress()
+      └── CompareWorker   → byte-level file diff + hash
+
+  CompressionService delegates to:
+      ├── compressZip()   → Java ZipOutputStream
+      ├── compressGzip()  → LeveledGZIPOutputStream
+      ├── HuffmanCodec.compress() / decompress()
+      └── LZWCodec.compress()    / decompress()
+
+  Utilities:
+      ├── BitOutputStream / BitInputStream  → bit-level I/O
+      ├── HuffmanNode                        → tree node
+      ├── FileDropHandler                    → drag & drop
+      ├── BarChartPanel / PieChartPanel      → custom charts
+      ├── CardButton / GradientPanel         → custom UI
+      └── HistoryEntry                       → data model
+
+--------------------------------------------------------
+LAYER BREAKDOWN
+--------------------------------------------------------
+
+1. ENTRY POINT
+   ─────────────
+   main()
+     → SwingUtilities.invokeLater()
+     → Sets system Look & Feel
+     → Creates AdvancedFileCompressor (extends JFrame)
+     → Calls setVisible(true)
+
+2. MAIN WINDOW SETUP (Constructor)
+   ──────────────────────────────────
+   AdvancedFileCompressor()
+     → loadHistory()           — reads .afc_history.csv
+     → buildHeaderPanel()      — gradient title bar
+     → buildDashboardPanel()   — CardLayout card 1
+     → buildCompressPanel()    — CardLayout card 2
+     → buildDecompressPanel()  — CardLayout card 3
+     → buildComparePanel()     — CardLayout card 4
+     → buildHistoryPanel()     — CardLayout card 5
+     → buildSettingsPanel()    — CardLayout card 6
+     → buildHelpPanel()        — CardLayout card 7
+     → buildStatusBar()        — bottom status strip
+
+3. NAVIGATION LAYER
+   ──────────────────
+   CardLayout drives all navigation:
+     showCard("compress")    → switches to compress view
+     showCard("dashboard")   → back button handler
+   No page reloads — all panels built once at startup.
+
+4. COMPRESSION LAYER (CompressionService)
+   ─────────────────────────────────────────
+   Static inner class. Centralizes all compress/decompress
+   dispatch logic.
+
+   compress(input, outDir, outputName, algorithm, level, listener)
+     → determines output extension
+     → routes to: compressZip / compressGzip /
+                  HuffmanCodec / LZWCodec
+     → returns CompressionResult (sizes, time, output file)
+
+   decompress(input, outDir, listener)
+     → reads file extension
+     → routes to: decompressZip / decompressGzip /
+                  HuffmanCodec.decompress / LZWCodec.decompress
+
+5. ALGORITHM LAYER
+   ──────────────────
+   HuffmanCodec (static inner class):
+     compress():
+       Pass 1 → byte frequency count (40% progress)
+       Build priority queue → Huffman tree → code table
+       Pass 2 → write header + encoded bits (60% progress)
+       Output: .huff file (original name + length + freq table + bits)
+
+     decompress():
+       Read header → rebuild freq table → rebuild tree
+       Decode bit stream → write output bytes
+
+   LZWCodec (static inner class):
+     compress():
+       Initialize 256-entry string → code dictionary
+       Greedy match + emit 16-bit codes
+       Auto-reset dictionary at 65535 entries
+
+     decompress():
+       Rebuild reverse dictionary
+       Read 16-bit codes → reconstruct strings
+
+   ZIP / GZIP:
+     Thin wrappers over java.util.zip.ZipOutputStream and
+     java.util.zip.GZIPOutputStream with progress callbacks.
+     LeveledGZIPOutputStream subclass exposes Deflater level.
+
+6. BIT I/O LAYER
+   ───────────────
+   BitOutputStream:
+     writeBit(int)        → packs bits into bytes
+     writeBits(value, n)  → writes n-bit value
+     flush()              → zero-pads to byte boundary
+
+   BitInputStream:
+     readBit()            → unpacks bits from bytes
+     readBits(n)          → reads n-bit value
+
+7. THREADING LAYER (SwingWorker)
+   ────────────────────────────────
+   CompressWorker:
+     doInBackground() → CompressionService.compress()
+     process()        → updates compressProgressBar
+     done()           → displayCompressionResult()
+
+   DecompressWorker:
+     doInBackground() → CompressionService.decompress()
+     process()        → updates decompressProgressBar
+     done()           → shows result + SHA-256 check
+
+   CompareWorker:
+     doInBackground() → size + SHA-256 + MD5 + byte diff
+     done()           → displays full diff report
+
+8. HISTORY LAYER
+   ───────────────
+   HistoryEntry (plain Java class):
+     Fields: dateTime, originalFile, compressedFile,
+             algorithm, originalSize, compressedSize,
+             durationMillis, originalHash
+
+   Persistence:
+     ~/.afc_history.csv  (home directory)
+     loadHistory()  → reads CSV on startup
+     saveHistory()  → writes CSV on every change
+     CSV uses RFC-style quoting via csvEscape()
+
+9. THEMING LAYER
+   ───────────────
+   applyTheme(boolean dark):
+     → Switches 8 color constants (BG, CARD, TEXT)
+     → Recursively calls themeContainer() on all components
+     → Custom-painted components (CardButton, GradientPanel,
+       BarChartPanel, PieChartPanel) repaint themselves
+
+10. CHART RENDERING LAYER
+    ───────────────────────
+    BarChartPanel (extends JPanel):
+      paintComponent() → draws two rounded bars side-by-side
+      (Original = blue, Compressed = green)
+
+    PieChartPanel (extends JPanel):
+      paintComponent() → draws fillArc() pie slices
+      (Green = compressed size, Red = space saved)
+
+    Both use Graphics2D with antialiasing. No chart library.
+
+--------------------------------------------------------
+KEY INNER CLASSES SUMMARY
+--------------------------------------------------------
+
+  Class                  Purpose
+  ─────────────────────────────────────────────────────
+  CompressionService     Compress/decompress dispatcher
+  HuffmanCodec           Huffman compress + decompress
+  LZWCodec               LZW compress + decompress
+  HuffmanNode            Priority queue tree node
+  BitOutputStream        Bit-level output stream
+  BitInputStream         Bit-level input stream
+  CompressWorker         Background compression thread
+  DecompressWorker       Background decompression thread
+  CompareWorker          Background file comparison thread
+  HistoryEntry           Data model for one history record
+  FileDropHandler        Drag-and-drop TransferHandler
+  CardButton             Rounded hover-effect nav button
+  GradientPanel          Horizontal gradient JPanel
+  BarChartPanel          Custom bar chart (Graphics2D)
+  PieChartPanel          Custom pie chart (Graphics2D)
+  CompressionResult      Compression output data holder
+  LeveledGZIPOutputStream GZIP with configurable level
+  ProgressListener       Functional interface for progress
+
+========================================================

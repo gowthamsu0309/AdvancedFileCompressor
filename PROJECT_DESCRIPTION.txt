@@ -1,0 +1,47 @@
+========================================================
+     PROJECT DESCRIPTION — Advanced File Compressor
+                     (300 Words)
+========================================================
+
+Advanced File Compressor & Decompressor is a full-featured
+desktop application built with Java Swing that lets users
+compress and decompress files using four different lossless
+algorithms — Huffman Coding, GZIP, ZIP, and LZW — all
+through a clean, modern graphical interface without needing
+any external libraries beyond the standard JDK.
+
+The application opens with a dashboard of navigation cards,
+each leading to a dedicated section. The Compress panel
+allows users to browse or drag and drop any file, preview
+its contents (text files show the first 500 lines, images
+render a scaled thumbnail), choose a compression algorithm
+and level via a slider, set an output folder and filename,
+then compress with a single click. A live progress bar
+tracks the operation, which runs on a background thread to
+keep the UI fully responsive. After compression, a results
+panel displays the original size, compressed size, space
+saved, compression ratio, time taken, and processing speed,
+alongside a custom-drawn bar chart and pie chart rendered
+using Java Graphics2D — no third-party chart library needed.
+
+The Decompress panel auto-detects the algorithm from the
+file extension, restores the original file, and performs a
+SHA-256 integrity check by comparing the decompressed
+file's hash against the hash stored from the original
+compression session.
+
+The Compare panel lets users select any two files and runs
+a byte-level diff — reporting file sizes, SHA-256 and MD5
+hashes, whether the files are identical, and the exact
+byte offsets where differences occur.
+
+All compression activity is automatically saved to a
+persistent history log. The History panel provides a
+searchable, sortable table with options to delete entries,
+export to CSV, or clear all records.
+
+The Settings panel offers light/dark theme switching, a
+default compression level, and a default output folder,
+all configurable at runtime.
+
+========================================================

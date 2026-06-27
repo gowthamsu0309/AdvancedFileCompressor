@@ -1,0 +1,614 @@
+========================================================
+  SOURCE CODE EXPLANATION — Advanced File Compressor
+========================================================
+
+File    : AdvancedFileCompressor.java
+Package : com.mycompany.advancedfilecompressor
+Class   : AdvancedFileCompressor extends JFrame
+
+This document walks through every major section of the
+source code in logical order.
+
+========================================================
+SECTION 1 — IMPORTS
+========================================================
+
+javax.swing.*              → All Swing UI components
+javax.swing.border.*       → Border factories
+javax.swing.event.*        → Swing event listeners
+javax.swing.table.*        → JTable model
+javax.swing.filechooser.*  → File type filters
+javax.imageio.ImageIO      → Reading image files for preview
+java.awt.*                 → Graphics, Color, Font, Layout
+java.awt.datatransfer.*    → Drag-and-drop data flavor
+java.awt.event.*           → Mouse and action listeners
+java.awt.image.*           → BufferedImage for preview
+java.io.*                  → File I/O streams, PrintWriter
+java.nio.file.*            → File attribute reading
+java.security.*            → MessageDigest (SHA-256, MD5)
+java.text.*                → SimpleDateFormat for timestamps
+java.util.*                → List, Map, Set, Queue, Arrays
+java.util.function.*       → Consumer<File> for drop callback
+java.util.zip.*            → ZipInputStream/OutputStream,
+                             GZIPInputStream/OutputStream
+
+NOTE: No third-party libraries are imported.
+Everything is standard JDK.
+
+========================================================
+SECTION 2 — CLASS-LEVEL CONSTANTS AND FIELDS
+========================================================
+
+COLOR CONSTANTS:
+  PRIMARY, PRIMARY_DARK     → indigo shades for header/button
+  SUCCESS, WARNING, DANGER  → green, orange, red status colors
+  BG_LIGHT / BG_DARK        → page background for theme
+  CARD_LIGHT / CARD_DARK    → card/input background for theme
+  TEXT_LIGHT / TEXT_DARK    → font color for theme
+
+INSTANCE FIELDS:
+  darkMode          → boolean tracking current theme
+  defaultCompressionLevel → int, synced with Settings slider
+  defaultOutputFolder → String, synced with Settings field
+  historyList       → List<HistoryEntry>, in-memory records
+  historyFile       → File pointing to ~/.afc_history.csv
+  cardLayout        → CardLayout for panel navigation
+  mainContainer     → JPanel holding all card panels
+  statusLabel       → JLabel at bottom status bar
+
+COMPRESS PANEL FIELDS:
+  compressInputFile        → currently selected input file
+  cNameValue ... cPathValue → JLabels showing file metadata
+  previewContainer          → panel swapped for text/image preview
+  textPreviewArea           → JTextArea for text preview
+  imagePreviewLabel         → JLabel for image preview
+  huffmanRadio ... lzwRadio → algorithm selector radio buttons
+  levelSlider               → 1–9 compression level slider
+  compressOutputFolderField → output folder text field
+  compressOutputNameField   → output filename text field
+  compressButton            → "Compress Now" action button
+  compressProgressBar       → 0–100 live progress bar
+  compressResultPanel       → result section (hidden until done)
+  resOriginal ... resSpeed  → JLabels for result statistics
+  compressBarChart          → custom BarChartPanel
+  compressPieChart          → custom PieChartPanel
+
+DECOMPRESS PANEL FIELDS:
+  decompressInputFile              → selected compressed file
+  dNameValue ... dModifiedValue    → file info labels
+  decompressOutputFolderField      → output folder
+  decompressButton                 → "Decompress Now" button
+  decompressProgressBar            → progress bar
+  decompressResultPanel            → result section
+  decResultFile ... decResultIntegrity → result labels
+
+COMPARE PANEL FIELDS:
+  compareFile1, compareFile2   → two selected files
+  cmp1Label, cmp2Label         → path display labels
+  compareResultArea            → JTextArea for diff output
+
+HISTORY PANEL FIELDS:
+  historyTable        → JTable (sortable, non-editable)
+  historyTableModel   → DefaultTableModel backing the table
+  historySearchField  → search input box
+
+SETTINGS FIELDS:
+  lightThemeRadio, darkThemeRadio  → theme selection
+  defaultLevelSlider               → default level 1–9
+  defaultFolderField               → default output path
+
+STATIC SETS:
+  TEXT_EXTENSIONS   → 12 text file extensions for preview
+  IMAGE_EXTENSIONS  → 5 image extensions for preview
+
+========================================================
+SECTION 3 — CONSTRUCTOR
+========================================================
+
+AdvancedFileCompressor()
+
+  1. super("Advanced File Compressor & Decompressor")
+     → Sets window title
+
+  2. setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE)
+     → Window X button exits app
+
+  3. setSize(1250, 780) / setMinimumSize(1000, 650)
+     → Default and minimum window dimensions
+
+  4. setLocationRelativeTo(null)
+     → Centers window on screen
+
+  5. loadHistory()
+     → Reads ~/.afc_history.csv into historyList
+
+  6. add(buildHeaderPanel(), BorderLayout.NORTH)
+     → Gradient title bar with toggle button
+
+  7. mainContainer panels added one per screen:
+     dashboard, compress, decompress, compare,
+     history, settings, help
+
+  8. add(buildStatusBar(), BorderLayout.SOUTH)
+     → Gray bottom strip with statusLabel
+
+  9. showCard("dashboard")
+     → Starts on dashboard screen
+
+========================================================
+SECTION 4 — buildHeaderPanel()
+========================================================
+
+Returns a GradientPanel (PRIMARY_DARK → PRIMARY, left to right).
+
+Components:
+  - JLabel title (white, bold, 20pt Segoe UI)
+  - JButton "Dark Mode" toggles applyTheme(!darkMode)
+    and updates its own label to "Light Mode" / "Dark Mode"
+
+========================================================
+SECTION 5 — buildDashboardPanel()
+========================================================
+
+2x4 GridLayout of CardButton instances.
+Each CardButton takes: title, subtitle, accent color, Runnable.
+
+Cards and their actions:
+  "Compress File"       → showCard("compress")
+  "Decompress File"     → showCard("decompress")
+  "Compare Files"       → showCard("compare")
+  "Compression History" → showCard("history")
+  "Settings"            → showCard("settings")
+  "Help"                → showCard("help")
+  "Exit"                → confirmExit()
+
+confirmExit() shows a YES/NO dialog; calls System.exit(0)
+if confirmed.
+
+========================================================
+SECTION 6 — buildCompressPanel()
+========================================================
+
+A vertically scrollable BoxLayout panel with 4 sections:
+
+SECTION 1 — File Selection:
+  browseBtn   → calls browseCompressFile()
+                → JFileChooser → loadCompressFile(File)
+  dropArea    → FileDropHandler installed
+                → loadCompressFile(File) on drop
+
+  loadCompressFile(File f):
+    - stores f in compressInputFile
+    - calls updateFileInfo(f) → populates metadata labels
+    - calls updatePreview(f) → swaps preview component
+    - hides compressResultPanel
+
+  updateFileInfo(File f):
+    - Sets name, extension, size labels
+    - Reads BasicFileAttributes via NIO for created/modified
+    - Formats dates with SimpleDateFormat
+
+  updatePreview(File f):
+    - Gets extension, checks isImageExtension / isTextExtension
+    - Image: ImageIO.read() → scale to 400px → ImageIcon
+    - Text: readPreviewText(f, 500) → first 500 lines
+    - Other: "Preview not available" message
+    - Swaps previewContainer contents and revalidates
+
+SECTION 2 — File Preview:
+  JScrollPane wrapping previewContainer (220px tall)
+  Content swapped dynamically by updatePreview()
+
+SECTION 3 — Compression Options (3-column GridLayout):
+  a) Algorithm panel (4 radio buttons in ButtonGroup)
+  b) Level panel (JSlider 1–9, ticks, labels)
+  c) Output panel (folder field + chooser + name field)
+
+SECTION 4 — Action Row:
+  compressButton → startCompression()
+  compressProgressBar (0–100, string painted)
+
+  startCompression():
+    1. Validates: file null, file missing, file empty,
+       output dir invalid, output dir not writable,
+       output name empty, low disk space warning
+    2. Disables button, resets progress bar
+    3. Reads algorithm string from selected radio
+    4. Reads level from levelSlider
+    5. Launches CompressWorker(input, dir, name, algo, level)
+
+SECTION 5 — Result Panel (hidden until done):
+  7-row stats grid + side-by-side BarChart + PieChart
+
+  displayCompressionResult(r):
+    - Populates all stat labels
+    - Calls compressBarChart.setData() + compressPieChart.setData()
+    - Makes compressResultPanel visible
+    - Creates HistoryEntry and calls addHistoryEntry()
+
+========================================================
+SECTION 7 — CompressWorker (SwingWorker)
+========================================================
+
+Runs CompressionService.compress() off the Event Dispatch Thread.
+
+  doInBackground():
+    → CompressionService.compress(input, outDir, outName,
+        algo, level, percent -> publish(percent))
+    → Returns CompressionResult
+
+  process(List<Integer> chunks):
+    → compressProgressBar.setValue(last chunk)
+
+  done():
+    → Re-enables compressButton
+    → Calls displayCompressionResult(result) on success
+    → Shows JOptionPane error dialog on failure
+
+========================================================
+SECTION 8 — buildDecompressPanel()
+========================================================
+
+browseDecompressFile():
+  - FileChooser filtered to .zip, .gz, .huff, .lzw
+  - Detects algorithm from extension via switch statement
+  - Populates dNameValue, dSizeValue, dAlgoValue,
+    dModifiedValue labels
+
+startDecompression():
+  - Validates file, extension, output folder
+  - Launches DecompressWorker(input, outDir)
+
+DecompressWorker.done():
+  - Populates result labels
+  - Computes SHA-256 of decompressed file
+  - Calls findOriginalHashForCompressedFile()
+    → searches historyList for matching compressedFile path
+    → compares hashes
+  - Colors decResultIntegrity: SUCCESS / DANGER / WARNING
+
+========================================================
+SECTION 9 — buildComparePanel()
+========================================================
+
+Two file pickers (one per file).
+
+startCompare() → launches CompareWorker(f1, f2)
+
+CompareWorker.doInBackground():
+  1. Reads sizes of both files
+  2. Computes SHA-256 of both files via computeHash()
+  3. Computes MD5 of both files
+  4. If hashes differ:
+     - Opens both as BufferedInputStream
+     - Reads byte by byte, counts differing positions
+     - Collects first 20 offset positions of differences
+  5. Builds full text report as StringBuilder
+  6. Returns string to done()
+
+CompareWorker.done():
+  → Sets compareResultArea.setText(result)
+
+========================================================
+SECTION 10 — buildHistoryPanel()
+========================================================
+
+JTable backed by DefaultTableModel.
+Columns: Date/Time, Original File, Compressed File,
+         Algorithm, Original Size, Compressed Size,
+         Ratio (%), Duration (ms)
+
+historyTable.setAutoCreateRowSorter(true)
+  → Click any column header to sort
+
+filterHistoryTable(query):
+  - Rebuilds table model with matching rows only
+  - Matches on original file, compressed file, algorithm
+
+deleteSelectedHistory():
+  - Gets selected row index
+  - Converts view index to model index (for sorted views)
+  - Removes matching HistoryEntry from historyList
+  - Saves and refreshes table
+
+exportHistoryCsv():
+  - JFileChooser save dialog
+  - Writes CSV with header row
+  - Uses csvEscape() for safe quoting
+
+clearAllHistory():
+  - Confirm dialog → clears historyList → saves → refreshes
+
+========================================================
+SECTION 11 — HISTORY PERSISTENCE
+========================================================
+
+loadHistory():
+  - Reads ~/.afc_history.csv line by line
+  - Uses parseCsvLine() for RFC-compliant CSV parsing
+  - Creates HistoryEntry objects, adds to historyList
+
+saveHistory():
+  - Overwrites ~/.afc_history.csv
+  - Uses csvEscape() to wrap all strings in double quotes
+  - Handles embedded quotes by doubling them ("")
+
+parseCsvLine(String line):
+  - State machine: tracks inQuotes boolean
+  - Handles escaped quotes ("")
+  - Returns List<String> of field values
+
+csvEscape(String s):
+  - Wraps in double quotes
+  - Doubles any embedded double quotes
+
+========================================================
+SECTION 12 — buildSettingsPanel()
+========================================================
+
+Three settings sections:
+
+1. Theme radio buttons:
+   lightThemeRadio → applyTheme(false)
+   darkThemeRadio  → applyTheme(true)
+
+2. Default compression level slider (1–9):
+   changeListener → updates defaultCompressionLevel
+   → also syncs levelSlider in compress panel
+
+3. Default output folder:
+   Text field + folder chooser button
+
+Save button:
+  → updates defaultOutputFolder
+  → syncs compressOutputFolderField and
+    decompressOutputFolderField
+
+========================================================
+SECTION 13 — buildHelpPanel()
+========================================================
+
+JEditorPane with contentType "text/html"
+Renders a formatted help page with:
+  - Step-by-step user guide
+  - Algorithm explanations (Huffman, GZIP, ZIP, LZW)
+  - About section
+
+========================================================
+SECTION 14 — THEME ENGINE
+========================================================
+
+applyTheme(boolean dark):
+  - Sets darkMode flag
+  - Picks 3 colors: bg, cardBg, fg
+  - Calls themeContainer(mainContainer, ...)
+  - Syncs lightThemeRadio / darkThemeRadio if built
+
+themeContainer(Container, bg, cardBg, fg):
+  - Iterates all child components recursively
+  - Applies appropriate color per component type:
+      JTextArea  → cardBg bg, fg text, fg caret
+      JTextField → cardBg bg, fg text
+      JTable     → cardBg bg, fg text
+      JButton    → cardBg bg, fg text
+      JScrollPane→ bg background
+      JLabel     → fg foreground
+      JPanel     → bg background
+  - Skips CardButton and GradientPanel (self-managing)
+
+========================================================
+SECTION 15 — UTILITY METHODS
+========================================================
+
+formatSize(long bytes):
+  - Returns human-readable string: "1.25 MB"
+  - Divides repeatedly by 1024 through: B, KB, MB, GB, TB
+
+getExtension(File f):
+  - Returns lowercase extension without dot
+  - Returns "" if no dot or dot is last character
+
+isTextExtension(String ext):
+  - Returns true if ext is in TEXT_EXTENSIONS set
+
+isImageExtension(String ext):
+  - Returns true if ext is in IMAGE_EXTENSIONS set
+
+readPreviewText(File f, int maxLines):
+  - BufferedReader reads up to maxLines lines
+  - Appends truncation notice if file has more
+
+computeHash(File file, String algorithm):
+  - Uses MessageDigest.getInstance(algorithm)
+  - Reads file in 64KB chunks, updates digest
+  - Returns lowercase hex string of hash bytes
+
+========================================================
+SECTION 16 — CompressionService
+========================================================
+
+Static inner class. Central dispatcher for all I/O.
+
+compress():
+  - Switches on algorithm string → extension string
+  - Switches again → routes to correct method
+  - Times execution with System.currentTimeMillis()
+  - Returns CompressionResult
+
+compressZip(input, output, level, listener):
+  - ZipOutputStream wrapping FileOutputStream
+  - Calls zos.setLevel(level)
+  - One ZipEntry named after the input file
+  - copyWithProgress() copies bytes, fires progress callbacks
+
+compressGzip(input, output, level, listener):
+  - LeveledGZIPOutputStream (custom subclass)
+  - def.setLevel(level) set in constructor
+  - copyWithProgress() handles byte streaming
+
+LeveledGZIPOutputStream:
+  - Extends GZIPOutputStream
+  - Calls super(out) then def.setLevel(level)
+  - Exposes Deflater level (not possible with base class)
+
+decompress():
+  - Reads extension → routes to decompressZip /
+    decompressGzip / HuffmanCodec / LZWCodec
+
+decompressZip():
+  - ZipInputStream → reads first ZipEntry
+  - Uses entry.getSize() for progress calculation
+  - Writes to file named after entry
+
+decompressGzip():
+  - Strips .gz suffix from output filename
+  - GZIPInputStream → reads → writes to output
+  - Fires progress callbacks
+
+========================================================
+SECTION 17 — HuffmanCodec
+========================================================
+
+compress(File input, File output, ProgressListener):
+
+  Pass 1 — Frequency Count (0%→40% progress):
+    - Reads all bytes, increments freq[byte]
+    - Counts distinct symbols
+
+  Build Tree:
+    - Adds each non-zero freq as HuffmanNode to PriorityQueue
+    - Special case: only 1 distinct symbol → synthetic root
+    - Merges two lowest-freq nodes repeatedly
+    - Final single node = Huffman root
+
+  Build Code Table (buildCodes()):
+    - Recursive DFS on tree
+    - Left = "0", Right = "1"
+    - Leaf: stores Map<Byte, String> code
+    - Edge case: single-symbol → code = "0"
+
+  Write Output (DataOutputStream):
+    - dos.writeUTF(originalFilename)  → for decompression
+    - dos.writeLong(originalLength)   → stop condition
+    - dos.writeInt(distinct)          → how many table entries
+    - For each distinct byte: writeByte + writeLong(freq)
+
+  Pass 2 — Encode (40%→100% progress):
+    - Re-reads input file byte by byte
+    - Looks up code string per byte
+    - Writes each bit via BitOutputStream
+    - BitOutputStream flushes padding bits at close
+
+decompress(File input, File outDir, ProgressListener):
+  - Reads header back: filename, length, freq table
+  - Rebuilds identical Huffman tree (deterministic)
+  - Reads bits from BitInputStream
+  - Traverses tree: 0=left, 1=right, leaf=output byte
+  - Stops when produced == originalLen
+
+========================================================
+SECTION 18 — LZWCodec
+========================================================
+
+compress(File input, File output, ProgressListener):
+  - Writes input filename as UTF header
+  - Initializes dictionary: 256 single-char → code entries
+  - Greedy match loop:
+      w = current string, c = next byte
+      if (w+c) in dictionary → w = w+c (extend)
+      else → emit code for w (16 bits), add w+c to dict
+  - Auto-resets at 65,535 entries (16-bit limit)
+  - Emits final w after EOF
+
+decompress(File input, File outDir, ProgressListener):
+  - Reads filename header
+  - Rebuilds reverse dictionary (code → string)
+  - Reads 16-bit codes from BitInputStream
+  - Reconstructs strings using standard LZW decode rule:
+      if code in dict → use dict[code]
+      else → use w + w[0]  (deferred entry case)
+  - Writes each decoded string as bytes
+
+========================================================
+SECTION 19 — BitOutputStream / BitInputStream
+========================================================
+
+BitOutputStream:
+  - Wraps any OutputStream
+  - writeBit(int bit):
+      Shifts bit into currentByte
+      Writes full byte when numBits reaches 8
+  - writeBits(int value, int count):
+      Writes count bits from MSB to LSB
+  - flush(): zero-pads current byte to boundary
+  - close(): calls flush() before stream closes
+
+BitInputStream:
+  - Wraps any InputStream
+  - readBit():
+      Reads new byte when buffer empty
+      Returns -1 on EOF
+      Extracts MSB first
+  - readBits(int count):
+      Accumulates count bits into result int
+      Returns -1 if EOF encountered mid-read
+  - close(): no-op (owning try-with-resources handles it)
+
+========================================================
+SECTION 20 — CUSTOM UI COMPONENTS
+========================================================
+
+CardButton (extends JButton):
+  - HTML label with title + subtitle (centered)
+  - Overrides paintComponent():
+      fillRoundRect with currentColor (radius 22)
+      Antialiasing enabled
+  - MouseAdapter: entered → brighter color, exited → restore
+  - setContentAreaFilled(false), setBorderPainted(false)
+    → removes default button look so custom paint shows
+
+GradientPanel (extends JPanel):
+  - Overrides paintComponent():
+      GradientPaint from c1 (left) to c2 (right)
+      fillRect covers entire panel
+
+BarChartPanel (extends JPanel):
+  - setData(long original, long compressed): stores + repaint()
+  - paintComponent():
+      Calculates bar heights proportional to max value
+      Draws two fillRoundRect bars side-by-side
+      Blue = original, Green = compressed
+      Draws size labels above bars, names below
+
+PieChartPanel (extends JPanel):
+  - setData(long compressed, long saved): stores + repaint()
+  - paintComponent():
+      Calculates compAngle = 360 * compressed / total
+      Green arc = compressed portion (from 90°)
+      Red arc = saved portion (remaining angle)
+      Legend text below circle
+
+FileDropHandler (extends TransferHandler):
+  - canImport(): accepts javaFileListFlavor only
+  - importData(): extracts first File from drop
+    → calls Consumer<File> callback (loadCompressFile)
+
+========================================================
+SECTION 21 — main()
+========================================================
+
+  public static void main(String[] args) {
+      SwingUtilities.invokeLater(() -> {
+          UIManager.setLookAndFeel(
+              UIManager.getSystemLookAndFeelClassName());
+          AdvancedFileCompressor app = new AdvancedFileCompressor();
+          app.setVisible(true);
+      });
+  }
+
+Key points:
+  - invokeLater() ensures all Swing creation happens on EDT
+  - setLookAndFeel() applies native OS theme (Windows/Mac/Linux)
+  - Exception silently ignored (falls back to Metal LAF)
+
+========================================================

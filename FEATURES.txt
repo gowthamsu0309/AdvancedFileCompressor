@@ -1,0 +1,253 @@
+========================================================
+         FEATURES — Advanced File Compressor
+========================================================
+
+--------------------------------------------------------
+1. DASHBOARD
+--------------------------------------------------------
+  - Navigation hub with 7 color-coded action cards
+  - Each card: rounded corners, hover-brighten effect,
+    title + subtitle, hand cursor
+  - Cards: Compress File, Decompress File, Compare Files,
+    Compression History, Settings, Help, Exit
+  - Exit prompts a confirmation dialog before closing
+  - Gradient header bar (indigo → blue) with app title
+
+--------------------------------------------------------
+2. FILE COMPRESSION
+--------------------------------------------------------
+
+  FILE SELECTION
+  ───────────────
+  - Browse file via native OS file chooser dialog
+  - Drag & drop a file directly onto the drop zone
+  - File info panel shows:
+      * File Name
+      * Extension
+      * Original Size (auto-formatted: B / KB / MB / GB)
+      * Created Date (yyyy-MM-dd HH:mm:ss)
+      * Last Modified Date
+      * Full File Path
+
+  FILE PREVIEW
+  ─────────────
+  - Text files (.txt, .csv, .xml, .json, .java, .html,
+    .css, .js, .md, .log, .ini, .properties):
+      → Shows first 500 lines in a scrollable code pane
+      → Truncation notice if more lines exist
+  - Image files (.jpg, .jpeg, .png, .gif, .bmp):
+      → Renders scaled thumbnail (400px wide)
+  - Other file types:
+      → Shows a friendly "preview not available" message
+
+  COMPRESSION ALGORITHMS (4 choices)
+  ────────────────────────────────────
+  a) Huffman Coding (.huff)
+     - Custom implementation from scratch
+     - Builds a frequency table from all 256 byte values
+     - Constructs an optimal prefix-code tree via
+       PriorityQueue (min-heap)
+     - Assigns shorter codes to more frequent bytes
+     - Stores: original filename, original length,
+       frequency table, then encoded bit stream
+     - Progress: 40% (freq pass) + 60% (encode pass)
+
+  b) GZIP (.gz)
+     - Wraps Java's GZIPOutputStream
+     - Uses DEFLATE algorithm (LZ77 + Huffman internally)
+     - Compression level configurable via Deflater
+     - Progress tracked via byte-copy loop
+
+  c) ZIP (.zip)
+     - Wraps Java's ZipOutputStream
+     - Single-entry ZIP archive preserving filename
+     - Compression level configurable (1–9)
+     - Progress tracked via byte-copy loop
+
+  d) LZW — Lempel-Ziv-Welch (.lzw)
+     - Custom implementation from scratch
+     - Greedy string matching with 16-bit code output
+     - Dictionary starts with 256 single-byte entries
+     - Auto-resets dictionary at 65,535 entries
+     - Same algorithm historically used in GIF format
+
+  COMPRESSION LEVEL SLIDER
+  ─────────────────────────
+  - Range: 1 (fastest) to 9 (maximum compression)
+  - Applies to ZIP and GZIP algorithms
+  - Default level configurable in Settings
+
+  OUTPUT CONFIGURATION
+  ─────────────────────
+  - Choose any output folder via folder picker
+  - Enter custom output file name (no extension needed)
+  - Extension auto-appended based on algorithm
+
+  COMPRESSION RESULT PANEL
+  ─────────────────────────
+  - Original Size
+  - Compressed Size
+  - Space Saved
+  - Compression Ratio (%)
+  - Percentage Saved (%)
+  - Compression Time (ms)
+  - Processing Speed (MB/s)
+
+  CUSTOM CHARTS (no library — pure Graphics2D)
+  ─────────────────────────────────────────────
+  - Bar Chart: "Before vs After" (blue = original,
+    green = compressed), with size labels above bars
+  - Pie Chart: "Size Distribution" (green = compressed
+    portion, red = space saved portion), with legend
+
+  PROGRESS BAR
+  ─────────────
+  - Live progress 0–100% during compression
+  - Runs on background SwingWorker thread (UI never freezes)
+  - Button re-enables automatically on completion or error
+
+  VALIDATION
+  ───────────
+  - No file selected → warning dialog
+  - File no longer exists → error dialog
+  - Empty file (0 bytes) → warning dialog
+  - Invalid / non-writable output folder → error dialog
+  - Missing output name → warning dialog
+  - Low disk space (less than half input size) → confirm dialog
+
+--------------------------------------------------------
+3. FILE DECOMPRESSION
+--------------------------------------------------------
+  - Browse compressed file with filter:
+    *.zip, *.gz, *.huff, *.lzw
+  - Auto-detects algorithm from file extension
+  - Shows: File Name, Size, Detected Algorithm, Modified Date
+  - Choose output folder
+  - Live progress bar on background thread
+
+  SHA-256 INTEGRITY CHECK
+  ─────────────────────────
+  - After decompression, computes SHA-256 of the output file
+  - Compares against hash stored at compression time (history)
+  - Three outcomes shown with color:
+      ✅ Green  → Integrity Verified (hashes match)
+      ❌ Red    → Corrupted File (hash mismatch)
+      ⚠ Orange → No history record found to verify against
+
+  RESULT DISPLAY
+  ───────────────
+  - Output File Path
+  - Decompressed Size
+  - Time Taken (ms)
+  - SHA-256 Hash (hex string)
+  - Integrity Status
+
+--------------------------------------------------------
+4. FILE COMPARISON
+--------------------------------------------------------
+  - Select any two files via native file chooser
+  - Displays full paths of both selected files
+  - Runs comparison on a background SwingWorker thread
+
+  COMPARISON REPORT INCLUDES:
+  ────────────────────────────
+  - File 1 and File 2 paths
+  - Size of each file
+  - Size match: YES / NO
+  - SHA-256 hash of each file
+  - Hash match: YES (identical) / NO (differ)
+  - MD5 hash of each file
+  - If files differ:
+      * Total bytes compared
+      * Number of differing bytes
+      * Extra bytes in the larger file
+      * First 20 byte offsets where differences occur
+  - If identical: confirmation message
+
+--------------------------------------------------------
+5. COMPRESSION HISTORY
+--------------------------------------------------------
+  - All compressions auto-saved to ~/.afc_history.csv
+  - Persists across application restarts
+  - Displayed as a sortable JTable with columns:
+      Date/Time, Original File, Compressed File,
+      Algorithm, Original Size, Compressed Size,
+      Ratio (%), Duration (ms)
+  - Click any column header to sort ascending/descending
+
+  SEARCH
+  ───────
+  - Search box filters rows by original file name,
+    compressed file name, or algorithm — live filter
+
+  MANAGEMENT ACTIONS
+  ───────────────────
+  - Delete Selected  → removes highlighted row from list
+  - Export CSV       → saves history to a chosen .csv file
+  - Clear All        → removes all records (with confirm)
+
+--------------------------------------------------------
+6. SETTINGS
+--------------------------------------------------------
+  - Theme: Light / Dark radio buttons (instant apply)
+  - Default Compression Level: slider (1–9)
+    → pre-fills the compress panel slider for new sessions
+  - Default Output Folder: text field + folder picker
+    → pre-fills compress and decompress output folders
+  - Save Settings button → confirms and applies changes
+
+--------------------------------------------------------
+7. HELP & ABOUT
+--------------------------------------------------------
+  - HTML-rendered user guide rendered in JEditorPane
+  - Step-by-step instructions for each panel
+  - Plain-language explanations of all four algorithms:
+      Huffman Coding, GZIP, ZIP, LZW
+  - About section describing the project's purpose
+
+--------------------------------------------------------
+8. LIGHT / DARK THEME
+--------------------------------------------------------
+  - Toggle button in header bar switches theme instantly
+  - Settings panel has radio buttons for same control
+  - Recursively recolors all Swing components:
+      JPanel, JButton, JTextField, JTextArea, JTable,
+      JScrollPane, JLabel
+  - Custom-painted components (charts, cards, gradient
+    header) repaint themselves with their own color logic
+
+--------------------------------------------------------
+9. STATUS BAR
+--------------------------------------------------------
+  - Persistent bottom strip shows current app status:
+      "Ready", "Compressing...", "Compression complete: file.gz"
+      "Loading file: report.txt", "Comparison complete."
+  - Updates automatically on every user action
+
+--------------------------------------------------------
+10. TECHNICAL FEATURES
+--------------------------------------------------------
+  - Zero external dependencies (standard JDK only)
+  - All I/O wrapped in BufferedInputStream/OutputStream
+    for performance (64KB buffer)
+  - SHA-256 and MD5 hashing via java.security.MessageDigest
+  - File attributes (created, modified) via
+    java.nio.file.Files.readAttributes()
+  - CSV history persisted with proper RFC-style quoting
+  - CardLayout navigation (no page rebuild on tab switch)
+  - All compression/decompression/comparison runs on
+    SwingWorker background threads (EDT never blocked)
+  - File size auto-formatter (B → KB → MB → GB → TB)
+
+--------------------------------------------------------
+PLANNED / TODO FEATURES
+--------------------------------------------------------
+  [ ] JavaFX migration for richer UI
+  [ ] Multi-file batch compression (ZIP multiple files)
+  [ ] Compression algorithm benchmark / comparison tool
+  [ ] Password-protected ZIP encryption
+  [ ] Drag & drop support in Decompress panel
+  [ ] Export charts as PNG images
+  [ ] System tray integration for background operation
+
+========================================================

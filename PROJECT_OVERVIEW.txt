@@ -1,0 +1,68 @@
+========================================================
+      PROJECT OVERVIEW — Advanced File Compressor
+========================================================
+
+PROJECT NAME   : Advanced File Compressor & Decompressor
+FILE NAME      : AdvancedFileCompressor.java
+PACKAGE        : com.mycompany.advancedfilecompressor
+MAIN CLASS     : AdvancedFileCompressor
+BUILD TOOL     : Apache Maven
+UI FRAMEWORK   : Java Swing
+LANGUAGE       : Java 11+
+
+--------------------------------------------------------
+WHAT IS THIS PROJECT?
+--------------------------------------------------------
+Advanced File Compressor & Decompressor is a feature-rich
+desktop GUI application built entirely with Java Swing and
+the standard JDK. It enables users to compress and
+decompress files using four lossless compression algorithms,
+compare files byte-by-byte, track compression history, and
+customize the application — all from a single, polished
+desktop window.
+
+--------------------------------------------------------
+WHY WAS IT BUILT?
+--------------------------------------------------------
+Most compression tools are either command-line-only or
+require heavy third-party dependencies. This project
+demonstrates that a complete, production-quality file
+compression utility can be built using only Java's standard
+library, including:
+  - Custom algorithm implementations (Huffman, LZW)
+  - Native Java compression wrappers (GZIP, ZIP)
+  - Custom 2D chart rendering (no chart library)
+  - SHA-256 / MD5 integrity verification
+  - Persistent history stored as a local CSV file
+
+--------------------------------------------------------
+WHO IS IT FOR?
+--------------------------------------------------------
+  - Java developers learning GUI programming with Swing
+  - Students studying compression algorithms practically
+  - Anyone needing a lightweight, dependency-free desktop
+    compression utility
+  - Developers showcasing full-stack Java desktop skills
+
+--------------------------------------------------------
+WHAT PROBLEMS DOES IT SOLVE?
+--------------------------------------------------------
+  ✔ Compress files using 4 different algorithms
+  ✔ Decompress and verify file integrity via SHA-256
+  ✔ Compare any two files with byte-level accuracy
+  ✔ Track, search, and export compression history
+  ✔ No external libraries — runs on any JDK 11+ machine
+  ✔ Light/Dark theme for comfortable use in any setting
+
+--------------------------------------------------------
+SUMMARY
+--------------------------------------------------------
+A self-contained Java Swing desktop application that
+implements Huffman Coding, GZIP, ZIP, and LZW compression
+from scratch or via JDK wrappers, wrapped in a multi-panel
+tabbed UI with live progress, custom charts, SHA-256
+integrity checks, searchable history, drag-and-drop file
+loading, image/text preview, and full light/dark theming —
+all with zero external dependencies.
+
+========================================================

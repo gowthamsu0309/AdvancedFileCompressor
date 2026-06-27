@@ -1,0 +1,376 @@
+========================================================
+  IMPLEMENTATION STEPS — Advanced File Compressor
+========================================================
+
+This guide walks you through setting up, building,
+running, and pushing the project to GitHub from scratch.
+
+========================================================
+STEP 1 — PREREQUISITES
+========================================================
+
+Install the following before starting:
+
+  ✔ Java JDK 11 or higher
+       Check  : java -version
+       Install: https://adoptium.net/
+
+  ✔ Apache Maven 3.6 or higher
+       Check  : mvn -version
+       Install: https://maven.apache.org/download.cgi
+
+  ✔ Git
+       Check  : git --version
+       Install: https://git-scm.com/
+
+  ✔ Any IDE (optional but recommended):
+       IntelliJ IDEA : https://www.jetbrains.com/idea/
+       Eclipse        : https://www.eclipse.org/
+       NetBeans       : https://netbeans.apache.org/
+       VS Code + Java Extension Pack
+
+  NOTE: Java Swing is built into the JDK.
+        No JavaFX or external UI library is needed.
+
+========================================================
+STEP 2 — CREATE THE MAVEN PROJECT
+========================================================
+
+Option A — Generate with Maven archetype (terminal):
+
+  mvn archetype:generate \
+    -DgroupId=com.mycompany.advancedfilecompressor \
+    -DartifactId=AdvancedFileCompressor \
+    -DarchetypeArtifactId=maven-archetype-quickstart \
+    -DinteractiveMode=false
+
+  cd AdvancedFileCompressor
+
+Option B — Create manually:
+
+  Create this folder structure:
+
+  AdvancedFileCompressor/
+  ├── pom.xml
+  └── src/
+      └── main/
+          └── java/
+              └── com/
+                  └── mycompany/
+                      └── advancedfilecompressor/
+                          └── AdvancedFileCompressor.java
+
+Option C — Use your IDE:
+
+  IntelliJ IDEA:
+    File → New Project → Maven → set groupId and artifactId
+
+  Eclipse:
+    File → New → Maven Project → fill in coordinates
+
+========================================================
+STEP 3 — SET UP pom.xml
+========================================================
+
+Replace or create pom.xml with:
+
+------------------------------------------------------------
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+         http://maven.apache.org/xsd/maven-4.0.0.xsd">
+
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>com.mycompany.advancedfilecompressor</groupId>
+  <artifactId>AdvancedFileCompressor</artifactId>
+  <version>1.0-SNAPSHOT</version>
+  <packaging>jar</packaging>
+
+  <name>Advanced File Compressor</name>
+  <description>
+    A Java Swing desktop application for file compression,
+    decompression, comparison, and history tracking.
+  </description>
+
+  <properties>
+    <maven.compiler.source>11</maven.compiler.source>
+    <maven.compiler.target>11</maven.compiler.target>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <mainClass>com.mycompany.advancedfilecompressor.AdvancedFileCompressor</mainClass>
+  </properties>
+
+  <build>
+    <plugins>
+
+      <!-- Compiler plugin: enforce Java 11 -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.10.1</version>
+        <configuration>
+          <source>11</source>
+          <target>11</target>
+        </configuration>
+      </plugin>
+
+      <!-- Build a runnable fat JAR -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <version>3.3.0</version>
+        <configuration>
+          <archive>
+            <manifest>
+              <mainClass>${mainClass}</mainClass>
+            </manifest>
+          </archive>
+          <finalName>AdvancedFileCompressor</finalName>
+        </configuration>
+      </plugin>
+
+    </plugins>
+  </build>
+
+</project>
+------------------------------------------------------------
+
+Key points:
+  - No external dependencies (Swing is in JDK)
+  - maven-jar-plugin sets Main-Class in MANIFEST.MF
+  - Output JAR will be: target/AdvancedFileCompressor.jar
+
+========================================================
+STEP 4 — ADD THE SOURCE FILE
+========================================================
+
+Place AdvancedFileCompressor.java at:
+
+  src/main/java/com/mycompany/advancedfilecompressor/
+      AdvancedFileCompressor.java
+
+The file must start with:
+  package com.mycompany.advancedfilecompressor;
+
+The class declaration must be:
+  public class AdvancedFileCompressor extends JFrame { ... }
+
+========================================================
+STEP 5 — BUILD THE PROJECT
+========================================================
+
+Open a terminal in the project root (where pom.xml is):
+
+  Compile only:
+    mvn clean compile
+
+  Build JAR:
+    mvn clean package
+
+  If successful, you will see:
+    BUILD SUCCESS
+    target/AdvancedFileCompressor.jar
+
+  Common errors:
+    "cannot find symbol" → check package declaration matches
+                           the folder path exactly
+    "Java version" error → set JAVA_HOME to JDK 11+
+    "encoding" warning   → already handled by UTF-8 property
+
+========================================================
+STEP 6 — RUN THE APPLICATION
+========================================================
+
+Option A — Run the JAR directly:
+
+  java -jar target/AdvancedFileCompressor.jar
+
+Option B — Run via Maven exec plugin:
+
+  Add this to pom.xml inside <plugins>:
+
+    <plugin>
+      <groupId>org.codehaus.mojo</groupId>
+      <artifactId>exec-maven-plugin</artifactId>
+      <version>3.1.0</version>
+      <configuration>
+        <mainClass>
+          com.mycompany.advancedfilecompressor.AdvancedFileCompressor
+        </mainClass>
+      </configuration>
+    </plugin>
+
+  Then run:
+    mvn exec:java
+
+Option C — Run directly from IDE:
+  Right-click AdvancedFileCompressor.java → Run
+
+A window titled "Advanced File Compressor & Decompressor"
+appears at the center of your screen.
+
+========================================================
+STEP 7 — TEST THE APPLICATION
+========================================================
+
+TEST COMPRESSION:
+  1. Click "Compress File" on the dashboard
+  2. Click "Browse File..." and select any file
+     (try a .txt or .java file first)
+  3. Observe the file preview loading
+  4. Select algorithm: Huffman, GZIP, ZIP, or LZW
+  5. Set compression level via slider
+  6. Confirm output folder and file name
+  7. Click "Compress Now"
+  8. Watch progress bar fill to 100%
+  9. Check result panel: sizes, ratio, charts
+
+TEST DECOMPRESSION:
+  1. Click "Back to Dashboard"
+  2. Click "Decompress File"
+  3. Browse to the compressed file you just made
+  4. Confirm output folder
+  5. Click "Decompress Now"
+  6. Verify: "Integrity Verified" in green (SHA-256 match)
+
+TEST COMPARE:
+  1. Go to "Compare Files"
+  2. Select the original and decompressed output files
+  3. Click "Compare Files"
+  4. Expect: "Hash Match: YES (Files Identical)"
+
+TEST HISTORY:
+  1. Go to "Compression History"
+  2. Your compression sessions appear as table rows
+  3. Try searching by file name
+  4. Click a column header to sort
+  5. Try "Export CSV" to save history externally
+
+TEST DARK MODE:
+  1. Click "Dark Mode" button in the header
+  2. All panels switch to dark background theme
+  3. Click again to return to light mode
+
+========================================================
+STEP 8 — CREATE A .gitignore FILE
+========================================================
+
+Create .gitignore in the project root:
+
+  # Maven build output
+  target/
+
+  # Compiled Java classes
+  *.class
+
+  # JAR files
+  *.jar
+
+  # IntelliJ IDEA
+  .idea/
+  *.iml
+  *.iws
+
+  # Eclipse
+  .project
+  .classpath
+  .settings/
+  bin/
+
+  # NetBeans
+  nbproject/
+  build/
+  dist/
+
+  # VS Code
+  .vscode/
+
+  # macOS
+  .DS_Store
+
+  # Windows
+  Thumbs.db
+
+  # App history file (personal — exclude from repo)
+  .afc_history.csv
+
+========================================================
+STEP 9 — PUSH TO GITHUB
+========================================================
+
+1. Initialize Git repository:
+     git init
+
+2. Stage all files:
+     git add .
+
+3. Initial commit:
+     git commit -m "Initial commit: Advanced File Compressor"
+
+4. Create repo on GitHub:
+     Go to https://github.com/new
+     Repository name: AdvancedFileCompressor
+     Set to Public or Private
+     Do NOT check "Initialize with README"
+     Click "Create repository"
+
+5. Connect and push:
+     git remote add origin https://github.com/YOUR_USERNAME/AdvancedFileCompressor.git
+     git branch -M main
+     git push -u origin main
+
+6. Verify on GitHub:
+     Visit: https://github.com/YOUR_USERNAME/AdvancedFileCompressor
+     You should see all files and README.md rendered
+
+========================================================
+STEP 10 — RECOMMENDED PROJECT STRUCTURE ON GITHUB
+========================================================
+
+  AdvancedFileCompressor/
+  ├── src/
+  │   └── main/
+  │       └── java/
+  │           └── com/mycompany/advancedfilecompressor/
+  │               └── AdvancedFileCompressor.java
+  ├── pom.xml
+  ├── README.md
+  ├── PROJECT_OVERVIEW.txt
+  ├── PROJECT_ARCHITECTURE.txt
+  ├── FEATURES.txt
+  ├── SOURCE_CODE_EXPLANATION.txt
+  ├── IMPLEMENTATION_STEPS.txt
+  └── .gitignore
+
+========================================================
+STEP 11 — OPTIONAL ENHANCEMENTS
+========================================================
+
+1. Add a releases JAR (so users can download and run):
+     mvn clean package
+     Upload target/AdvancedFileCompressor.jar
+     to GitHub → Releases → New Release
+
+2. Add GitHub Actions CI to auto-build on push:
+     Create .github/workflows/build.yml:
+
+     name: Java CI
+     on: [push]
+     jobs:
+       build:
+         runs-on: ubuntu-latest
+         steps:
+           - uses: actions/checkout@v3
+           - uses: actions/setup-java@v3
+             with:
+               java-version: '11'
+               distribution: 'temurin'
+           - run: mvn clean package
+
+3. Add a LICENSE file (recommended):
+     MIT License is standard for open-source Java projects.
+     GitHub → your repo → Add file → Create new file
+     Name it: LICENSE
+     Use: https://choosealicense.com/licenses/mit/
+
+========================================================
